@@ -1,0 +1,28 @@
+{
+  "name": "skills-house",
+  "version": "1.0.0",
+  "description": "OpenClaw Skills 管理平台 - 上传、浏览和分享 Skills",
+  "main": "server/index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "nodemon server/index.js",
+    "client": "cd client && npm run dev",
+    "build": "cd client && npm run build",
+    "start": "node server/index.js"
+  },
+  "keywords": ["skills", "openclaw", "marketplace"],
+  "author": "hisenxu",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "multer": "^1.4.5-lts.1",
+    "archiver": "^6.0.1",
+    "extract-zip": "^2.0.1",
+    "cors": "^2.8.5",
+    "body-parser": "^1.20.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2",
+    "concurrently": "^8.2.2"
+  }
+}
