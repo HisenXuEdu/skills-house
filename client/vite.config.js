@@ -10,5 +10,11 @@ export default defineConfig({
         changeOrigin: true
       }
     }
+  },
+  build: {
+    // 兼容性配置
+    target: 'es2015',
+    // 禁用某些优化以兼容旧版 Node
+    minify: 'terser'
   }
 })

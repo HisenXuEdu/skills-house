@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 🚀 Skills House 一键部署脚本
+# 🚀 Skills House 一键部署脚本（修复版）
 # 在目标服务器 hisenxu-any3.devcloud.woa.com 上直接运行此脚本
 
 set -e
@@ -29,6 +29,17 @@ if ! command -v node &> /dev/null; then
     exit 1
 fi
 
+NODE_VERSION=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
+if [ "$NODE_VERSION" -lt 18 ]; then
+    echo "❌ Node.js 版本过低 (当前: $(node -v))"
+    echo "需要 Node.js v18+ 才能运行 Vite"
+    echo ""
+    echo "升级方法:"
+    echo "  curl -fsSL https://rpm.nodesource.com/setup_18.x | bash -"
+    echo "  yum install -y nodejs"
+    exit 1
+fi
+
 echo "✅ Node.js $(node -v)"
 echo "✅ npm $(npm -v)"
 
@@ -48,22 +59,25 @@ fi
 
 # 3. 安装依赖
 echo ""
-echo "📦 安装依赖..."
+echo "📦 安装后端依赖..."
 
 npm install
 
-if [ -d "client" ]; then
-    cd client
-    npm install
-    cd ..
-fi
+# 4. 安装前端依赖并构建
+echo ""
+echo "📦 安装前端依赖..."
 
-# 4. 构建前端
+cd client
+npm install
+
 echo ""
 echo "🔨 构建前端..."
 
-cd client
+# 设置 Node.js 选项以兼容旧版本加密 API
+export NODE_OPTIONS="--no-experimental-fetch"
+
 npm run build
+
 cd ..
 
 # 5. 配置服务
@@ -136,7 +150,7 @@ echo "✅ 服务已启动！"
 echo ""
 
 # 显示状态
-systemctl status skills-house --no-pager -l
+systemctl status skills-house --no-pager -l || true
 
 echo ""
 echo "================================"
