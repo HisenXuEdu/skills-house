@@ -4,11 +4,14 @@ const archiver = require('archiver');
 const extractZip = require('extract-zip');
 const cors = require('cors');
 const bodyParser = require('body-parser');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const fs = require('fs').promises;
 const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const JWT_SECRET = process.env.JWT_SECRET || 'skills-house-secret-key-change-in-production';
 
 // 中间件
 app.use(cors());
@@ -19,6 +22,7 @@ app.use(express.static('client/dist'));
 // 存储配置
 const SKILLS_DIR = path.join(__dirname, '../uploads/skills');
 const METADATA_FILE = path.join(__dirname, '../uploads/metadata.json');
+const USERS_FILE = path.join(__dirname, '../uploads/users.json');
 
 // 确保目录存在
 async function ensureDirectories() {
@@ -27,6 +31,11 @@ async function ensureDirectories() {
     await fs.access(METADATA_FILE);
   } catch {
     await fs.writeFile(METADATA_FILE, JSON.stringify([], null, 2));
+  }
+  try {
+    await fs.access(USERS_FILE);
+  } catch {
+    await fs.writeFile(USERS_FILE, JSON.stringify([], null, 2));
   }
 }
 
@@ -40,6 +49,153 @@ async function readMetadata() {
 async function writeMetadata(data) {
   await fs.writeFile(METADATA_FILE, JSON.stringify(data, null, 2));
 }
+
+// 读取用户数据
+async function readUsers() {
+  const data = await fs.readFile(USERS_FILE, 'utf-8');
+  return JSON.parse(data);
+}
+
+// 写入用户数据
+async function writeUsers(data) {
+  await fs.writeFile(USERS_FILE, JSON.stringify(data, null, 2));
+}
+
+// JWT 认证中间件
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ error: '未提供认证令牌' });
+  }
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) {
+      return res.status(403).json({ error: '无效的认证令牌' });
+    }
+    req.user = user;
+    next();
+  });
+}
+
+// API: 用户注册
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { username, password, email } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({ error: '用户名和密码不能为空' });
+    }
+
+    if (username.length < 3) {
+      return res.status(400).json({ error: '用户名至少3个字符' });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ error: '密码至少6个字符' });
+    }
+
+    const users = await readUsers();
+
+    // 检查用户名是否已存在
+    if (users.find(u => u.username === username)) {
+      return res.status(400).json({ error: '用户名已存在' });
+    }
+
+    // 加密密码
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // 创建新用户
+    const newUser = {
+      id: Date.now().toString(),
+      username,
+      email: email || '',
+      password: hashedPassword,
+      createdAt: new Date().toISOString(),
+      role: 'user'
+    };
+
+    users.push(newUser);
+    await writeUsers(users);
+
+    // 生成 token
+    const token = jwt.sign(
+      { id: newUser.id, username: newUser.username, role: newUser.role },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.json({
+      success: true,
+      token,
+      user: {
+        id: newUser.id,
+        username: newUser.username,
+        email: newUser.email,
+        role: newUser.role
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API: 用户登录
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({ error: '用户名和密码不能为空' });
+    }
+
+    const users = await readUsers();
+    const user = users.find(u => u.username === username);
+
+    if (!user) {
+      return res.status(401).json({ error: '用户名或密码错误' });
+    }
+
+    // 验证密码
+    const isValid = await bcrypt.compare(password, user.password);
+    if (!isValid) {
+      return res.status(401).json({ error: '用户名或密码错误' });
+    }
+
+    // 生成 token
+    const token = jwt.sign(
+      { id: user.id, username: user.username, role: user.role },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.json({
+      success: true,
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API: 验证 token
+app.get('/api/auth/me', authenticateToken, (req, res) => {
+  res.json({
+    success: true,
+    user: {
+      id: req.user.id,
+      username: req.user.username,
+      role: req.user.role
+    }
+  });
+});
 
 // 配置文件上传
 const storage = multer.diskStorage({
@@ -55,7 +211,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-// API: 获取所有 Skills
+// API: 获取所有 Skills（公开）
 app.get('/api/skills', async (req, res) => {
   try {
     const metadata = await readMetadata();
@@ -65,14 +221,19 @@ app.get('/api/skills', async (req, res) => {
   }
 });
 
-// API: 上传 Skill
-app.post('/api/skills/upload', upload.single('file'), async (req, res) => {
+// API: 上传 Skill（需要认证）
+app.post('/api/skills/upload', authenticateToken, upload.single('file'), async (req, res) => {
   try {
-    const { name, description, version, author } = req.body;
+    const { name, description, version } = req.body;
     const file = req.file;
+    const author = req.user.username;
 
     if (!file) {
       return res.status(400).json({ error: '没有上传文件' });
+    }
+
+    if (!name) {
+      return res.status(400).json({ error: '技能名称不能为空' });
     }
 
     // 创建 Skill 目录
@@ -81,8 +242,19 @@ app.post('/api/skills/upload', upload.single('file'), async (req, res) => {
     await fs.mkdir(skillDir, { recursive: true });
 
     // 解压文件
-    if (file.mimetype === 'application/zip' || file.originalname.endsWith('.zip')) {
-      await extractZip(file.path, { dir: skillDir });
+    if (file.mimetype === 'application/zip' || file.originalname.endsWith('.zip') || 
+        file.originalname.endsWith('.tgz') || file.originalname.endsWith('.tar.gz')) {
+      try {
+        await extractZip(file.path, { dir: skillDir });
+      } catch (err) {
+        // 如果是 tar.gz，尝试用 tar 解压
+        if (file.originalname.endsWith('.tgz') || file.originalname.endsWith('.tar.gz')) {
+          const { execSync } = require('child_process');
+          execSync(`tar -xzf "${file.path}" -C "${skillDir}"`);
+        } else {
+          throw err;
+        }
+      }
     } else {
       // 单文件直接复制
       await fs.copyFile(file.path, path.join(skillDir, file.originalname));
@@ -96,9 +268,10 @@ app.post('/api/skills/upload', upload.single('file'), async (req, res) => {
     const skillInfo = {
       id: skillId,
       name,
-      description,
+      description: description || '',
       version: version || '1.0.0',
-      author: author || 'Anonymous',
+      author,
+      uploadedBy: req.user.id,
       uploadedAt: new Date().toISOString(),
       downloadCount: 0
     };
@@ -111,7 +284,7 @@ app.post('/api/skills/upload', upload.single('file'), async (req, res) => {
   }
 });
 
-// API: 下载 Skill
+// API: 下载 Skill（公开）
 app.get('/api/skills/:id/download', async (req, res) => {
   try {
     const { id } = req.params;
@@ -155,17 +328,28 @@ app.get('/api/skills/:id/download', async (req, res) => {
   }
 });
 
-// API: 删除 Skill
-app.delete('/api/skills/:id', async (req, res) => {
+// API: 删除 Skill（需要认证，只能删除自己的）
+app.delete('/api/skills/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
+    const metadata = await readMetadata();
+    const skill = metadata.find(s => s.id === id);
+
+    if (!skill) {
+      return res.status(404).json({ error: 'Skill 不存在' });
+    }
+
+    // 检查权限（管理员或作者本人）
+    if (req.user.role !== 'admin' && skill.uploadedBy !== req.user.id) {
+      return res.status(403).json({ error: '无权删除此 Skill' });
+    }
+
     const skillDir = path.join(SKILLS_DIR, id);
 
     // 删除目录
     await fs.rm(skillDir, { recursive: true, force: true });
 
     // 更新元数据
-    const metadata = await readMetadata();
     const filtered = metadata.filter(s => s.id !== id);
     await writeMetadata(filtered);
 
@@ -175,7 +359,7 @@ app.delete('/api/skills/:id', async (req, res) => {
   }
 });
 
-// API: 搜索 Skills
+// API: 搜索 Skills（公开）
 app.get('/api/skills/search', async (req, res) => {
   try {
     const { q } = req.query;
@@ -187,7 +371,7 @@ app.get('/api/skills/search', async (req, res) => {
 
     const results = metadata.filter(skill => 
       skill.name.toLowerCase().includes(q.toLowerCase()) ||
-      skill.description.toLowerCase().includes(q.toLowerCase()) ||
+      (skill.description && skill.description.toLowerCase().includes(q.toLowerCase())) ||
       skill.author.toLowerCase().includes(q.toLowerCase())
     );
 
@@ -199,7 +383,13 @@ app.get('/api/skills/search', async (req, res) => {
 
 // 所有其他路由返回前端页面
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+  const indexPath = path.join(__dirname, '../client/dist/index.html');
+  const simplePath = path.join(__dirname, '../client/index.html');
+  
+  // 优先使用构建后的文件，否则使用简化版
+  fs.access(indexPath)
+    .then(() => res.sendFile(indexPath))
+    .catch(() => res.sendFile(simplePath));
 });
 
 // 启动服务器
