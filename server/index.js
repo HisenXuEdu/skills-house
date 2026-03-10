@@ -17,7 +17,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'skills-house-secret-key-change-in-
 app.use(cors());
 app.use(bodyParser.json());
 app.use('/uploads', express.static('uploads'));
-app.use(express.static('client/dist'));
+app.use(express.static('client'));
 
 // 存储配置
 const SKILLS_DIR = path.join(__dirname, '../uploads/skills');
