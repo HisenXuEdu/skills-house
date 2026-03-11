@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - Skills House</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/vue@3.3.11/dist/vue.global.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios@1.6.2/dist/axios.min.js"></script>
+  <style>
+    :root {
+      --primary-bg: #010202;
+      --secondary-bg: #0A0B0B;
+      --card-bg: #151617;
+      --mint-green: #A3F6D5;
+      --dark-green: #2E5345;
+      --sea-green: #5EA68D;
+      --text-primary: #FFFFFF;
+      --text-secondary: #C7D2D0;
+      --text-muted: #AAABAB;
+      --accent: #A3F6D5;
+      --danger: #ff6b6b;
+      --shadow-glow: rgba(163, 246, 213, 0.15);
+      --gradient-accent: linear-gradient(135deg, #A3F6D5 0%, #5EA68D 100%);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Sora', sans-serif;
+      background: var(--primary-bg);
+      color: var(--text-primary);
+      overflow-x: hidden;
+      line-height: 1.6;
+    }
+
+    /* 网格背景 */
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: 
+        linear-gradient(rgba(163, 246, 213, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(163, 246, 213, 0.03) 1px, transparent 1px);
+      background-size: 60px 60px;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .app-container { position: relative; z-index: 1; }
+
+    /* Header */
+    .header {
+      background: rgba(1, 2, 2, 0.95);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(163, 246, 213, 0.1);
+      padding: 1.5rem 0;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-content {
+      max-width: 1600px;
+      margin: 0 auto;
+      padding: 0 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo {
+      font-family: 'Sora', sans-serif;
+      font-size: 1.6rem;
+      font-weight: 800;
+      letter-spacing: -1px;
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      color: var(--text-primary);
+    }
+
+    .logo-icon {
+      background: var(--gradient-accent);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .user-section {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    .user-badge {
+      padding: 0.7rem 1.5rem;
+      background: rgba(163, 246, 213, 0.1);
+      border: 1px solid rgba(163, 246, 213, 0.2);
+      border-radius: 8px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.9rem;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .btn {
+      padding: 0.7rem 1.5rem;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-family: 'Sora', sans-serif;
+    }
+
+    .btn-primary {
+      background: var(--gradient-accent);
+      color: var(--primary-bg);
+      box-shadow: 0 0 20px var(--shadow-glow);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 30px rgba(163, 246, 213, 0.3);
+    }
+
+    .btn-secondary {
+      background: transparent;
+      border: 1px solid rgba(163, 246, 213, 0.3);
+      color: var(--accent);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(163, 246, 213, 0.1);
+    }
+
+    .btn-danger {
+      background: rgba(255, 107, 107, 0.1);
+      color: var(--danger);
+      border: 1px solid rgba(255, 107, 107, 0.3);
+    }
+
+    .btn-danger:hover {
+      background: rgba(255, 107, 107, 0.2);
+    }
+
+    /* Main Content */
+    .main-content {
+      max-width: 1600px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    .page-title {
+      font-family: 'Sora', sans-serif;
+      font-size: 2.5rem;
+      font-weight: 800;
+      margin-bottom: 0.5rem;
+      background: var(--gradient-accent);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .page-subtitle {
+      color: var(--text-muted);
+      margin-bottom: 2.5rem;
+      font-size: 1.1rem;
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 2.5rem;
+      border-bottom: 1px solid rgba(163, 246, 213, 0.1);
+    }
+
+    .tab {
+      padding: 1rem 2rem;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      border-bottom: 2px solid transparent;
+      font-family: 'Sora', sans-serif;
+    }
+
+    .tab:hover {
+      color: var(--accent);
+    }
+
+    .tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    /* Stats Cards */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .stat-card {
+      background: var(--card-bg);
+      border: 1px solid rgba(163, 246, 213, 0.1);
+      border-radius: 12px;
+      padding: 1.8rem;
+      transition: all 0.3s ease;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-4px);
+      border-color: var(--accent);
+      box-shadow: 0 10px 40px var(--shadow-glow);
+    }
+
+    .stat-label {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 0.5rem;
+      font-family: 'IBM Plex Mono', monospace;
+    }
+
+    .stat-value {
+      font-size: 2.5rem;
+      font-weight: 800;
+      color: var(--accent);
+      font-family: 'Sora', sans-serif;
+    }
+
+    /* Table */
+    .table-container {
+      background: var(--card-bg);
+      border: 1px solid rgba(163, 246, 213, 0.1);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 2rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      padding: 1.2rem;
+      text-align: left;
+      border-bottom: 1px solid rgba(163, 246, 213, 0.05);
+    }
+
+    th {
+      background: rgba(163, 246, 213, 0.05);
+      color: var(--accent);
+      font-weight: 600;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-family: 'IBM Plex Mono', monospace;
+    }
+
+    td {
+      color: var(--text-secondary);
+    }
+
+    tr:hover {
+      background: rgba(163, 246, 213, 0.03);
+    }
+
+    .badge {
+      padding: 0.4rem 0.8rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      font-family: 'IBM Plex Mono', monospace;
+      display: inline-block;
+    }
+
+    .badge-admin {
+      background: rgba(163, 246, 213, 0.2);
+      color: var(--accent);
+      border: 1px solid rgba(163, 246, 213, 0.3);
+    }
+
+    .badge-user {
+      background: rgba(170, 171, 171, 0.1);
+      color: var(--text-muted);
+      border: 1px solid rgba(170, 171, 171, 0.2);
+    }
+
+    /* Form */
+    .form-section {
+      background: var(--card-bg);
+      border: 1px solid rgba(163, 246, 213, 0.1);
+      border-radius: 12px;
+      padding: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    .form-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 1.5rem;
+      color: var(--text-primary);
+    }
+
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+
+    .form-label {
+      display: block;
+      margin-bottom: 0.6rem;
+      color: var(--text-secondary);
+      font-weight: 500;
+      font-size: 0.9rem;
+      font-family: 'IBM Plex Mono', monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 1rem 1.2rem;
+      border: 1px solid rgba(163, 246, 213, 0.2);
+      border-radius: 8px;
+      font-size: 1rem;
+      font-family: 'Sora', sans-serif;
+      background: rgba(163, 246, 213, 0.05);
+      color: var(--text-primary);
+      transition: all 0.3s ease;
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(163, 246, 213, 0.1);
+    }
+
+    .form-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    textarea.form-input {
+      resize: vertical;
+      min-height: 100px;
+    }
+
+    .error-message {
+      background: rgba(255, 107, 107, 0.1);
+      border-left: 3px solid var(--danger);
+      color: #ff9999;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1.5rem;
+      font-size: 0.9rem;
+    }
+
+    .success-message {
+      background: rgba(163, 246, 213, 0.1);
+      border-left: 3px solid var(--accent);
+      color: var(--accent);
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1.5rem;
+      font-size: 0.9rem;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 3rem;
+      color: var(--text-muted);
+    }
+
+    .loading-spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(163, 246, 213, 0.2);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 1rem;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 4rem 2rem;
+      color: var(--text-muted);
+    }
+
+    .empty-state-icon {
+      font-size: 4rem;
+      margin-bottom: 1rem;
+      opacity: 0.5;
+    }
+
+    /* Actions */
+    .actions {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .main-content {
+        padding: 1rem;
+      }
+
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .table-container {
+        overflow-x: auto;
+      }
+
+      table {
+        min-width: 600px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app" class="app-container">
+    <header class="header">
+      <div class="header-content">
+        <div class="logo">
+          <span class="logo-icon">⚙</span>
+          <span>ADMIN DASHBOARD</span>
+        </div>
+        <div class="user-section">
+          <div class="user-badge">
+            <span>⬡</span>
+            <span>{{ user?.username }}</span>
+          </div>
+          <button @click="goToMainSite" class="btn btn-secondary">前往主站</button>
+          <button @click="logout" class="btn btn-secondary">退出</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <h1 class="page-title">管理控制台</h1>
+      <p class="page-subtitle">Skills House 后台管理系统</p>
+
+      <!-- 统计卡片 -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">总用户数</div>
+          <div class="stat-value">{{ stats.totalUsers }}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">总 Skills 数</div>
+          <div class="stat-value">{{ stats.totalSkills }}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">总下载量</div>
+          <div class="stat-value">{{ stats.totalDownloads }}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">管理员数</div>
+          <div class="stat-value">{{ stats.adminUsers }}</div>
+        </div>
+      </div>
+
+      <!-- 选项卡 -->
+      <div class="tabs">
+        <button class="tab" :class="{ active: activeTab === 'users' }" @click="activeTab = 'users'">
+          用户管理
+        </button>
+        <button class="tab" :class="{ active: activeTab === 'skills' }" @click="activeTab = 'skills'">
+          Skills 管理
+        </button>
+        <button class="tab" :class="{ active: activeTab === 'crawler' }" @click="activeTab = 'crawler'">
+          爬虫工具
+        </button>
+      </div>
+
+      <!-- 用户管理 -->
+      <div v-if="activeTab === 'users'">
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>用户名</th>
+                <th>邮箱</th>
+                <th>角色</th>
+                <th>注册时间</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="u in users" :key="u.id">
+                <td>{{ u.username }}</td>
+                <td>{{ u.email || '-' }}</td>
+                <td>
+                  <span class="badge" :class="u.role === 'admin' ? 'badge-admin' : 'badge-user'">
+                    {{ u.role }}
+                  </span>
+                </td>
+                <td>{{ formatDate(u.createdAt) }}</td>
+                <td>
+                  <div class="actions">
+                    <button 
+                      v-if="u.role === 'user'" 
+                      @click="promoteToAdmin(u.id)" 
+                      class="btn btn-primary" 
+                      style="padding: 0.5rem 1rem; font-size: 0.85rem;"
+                    >
+                      提升为管理员
+                    </button>
+                    <button 
+                      v-if="u.role === 'admin' && u.id !== user.id" 
+                      @click="demoteToUser(u.id)" 
+                      class="btn btn-secondary" 
+                      style="padding: 0.5rem 1rem; font-size: 0.85rem;"
+                    >
+                      降为普通用户
+                    </button>
+                    <button 
+                      v-if="u.id !== user.id" 
+                      @click="deleteUser(u.id)" 
+                      class="btn btn-danger" 
+                      style="padding: 0.5rem 1rem; font-size: 0.85rem;"
+                    >
+                      删除
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Skills 管理 -->
+      <div v-if="activeTab === 'skills'">
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>名称</th>
+                <th>作者</th>
+                <th>版本</th>
+                <th>下载量</th>
+                <th>上传时间</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="skill in skills" :key="skill.id">
+                <td>{{ skill.name }}</td>
+                <td>{{ skill.author }}</td>
+                <td>{{ skill.version }}</td>
+                <td>{{ skill.downloadCount || 0 }}</td>
+                <td>{{ formatDate(skill.uploadedAt) }}</td>
+                <td>
+                  <button 
+                    @click="deleteSkill(skill.id)" 
+                    class="btn btn-danger" 
+                    style="padding: 0.5rem 1rem; font-size: 0.85rem;"
+                  >
+                    删除
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 爬虫工具 -->
+      <div v-if="activeTab === 'crawler'">
+        <div class="form-section">
+          <h2 class="form-title">从 URL 爬取 Skill</h2>
+          
+          <div v-if="crawlError" class="error-message">{{ crawlError }}</div>
+          <div v-if="crawlSuccess" class="success-message">{{ crawlSuccess }}</div>
+
+          <form @submit.prevent="crawlSkill">
+            <div class="form-group">
+              <label class="form-label">Skill URL *</label>
+              <input 
+                v-model="crawlForm.url" 
+                type="url" 
+                class="form-input" 
+                placeholder="https://example.com/skill.zip"
+                required
+                :disabled="crawling"
+              >
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Skill 名称 *</label>
+              <input 
+                v-model="crawlForm.name" 
+                type="text" 
+                class="form-input" 
+                placeholder="my-skill"
+                required
+                :disabled="crawling"
+              >
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">描述</label>
+              <textarea 
+                v-model="crawlForm.description" 
+                class="form-input" 
+                placeholder="描述这个 Skill 的功能..."
+                :disabled="crawling"
+              ></textarea>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">版本</label>
+              <input 
+                v-model="crawlForm.version" 
+                type="text" 
+                class="form-input" 
+                placeholder="1.0.0"
+                :disabled="crawling"
+              >
+            </div>
+
+            <button type="submit" class="btn btn-primary" :disabled="crawling">
+              {{ crawling ? '爬取中...' : '开始爬取并上传' }}
+            </button>
+          </form>
+        </div>
+
+        <div class="form-section">
+          <h2 class="form-title">使用说明</h2>
+          <ul style="color: var(--text-secondary); line-height: 2;">
+            <li>输入一个指向 .zip、.tgz 或 .tar.gz 文件的直链 URL</li>
+            <li>系统将自动下载、解压并以 admin 身份上传</li>
+            <li>支持常见的 Skill 包格式</li>
+            <li>上传后会自动出现在主站 Skills 列表中</li>
+          </ul>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const { createApp } = Vue;
+
+    createApp({
+      data() {
+        return {
+          user: null,
+          token: localStorage.getItem('skills_house_token'),
+          activeTab: 'users',
+          stats: {
+            totalUsers: 0,
+            totalSkills: 0,
+            totalDownloads: 0,
+            adminUsers: 0
+          },
+          users: [],
+          skills: [],
+          crawlForm: {
+            url: '',
+            name: '',
+            description: '',
+            version: '1.0.0'
+          },
+          crawling: false,
+          crawlError: '',
+          crawlSuccess: ''
+        };
+      },
+      async mounted() {
+        if (!this.token) {
+          window.location.href = '/';
+          return;
+        }
+
+        axios.defaults.headers.common['Authorization'] = `Bearer ${this.token}`;
+
+        try {
+          const res = await axios.get('/api/auth/me');
+          this.user = res.data.user;
+
+          if (this.user.role !== 'admin') {
+            alert('需要管理员权限');
+            window.location.href = '/';
+            return;
+          }
+
+          await this.loadData();
+        } catch (error) {
+          window.location.href = '/';
+        }
+      },
+      methods: {
+        async loadData() {
+          try {
+            const [statsRes, usersRes, skillsRes] = await Promise.all([
+              axios.get('/api/admin/stats'),
+              axios.get('/api/admin/users'),
+              axios.get('/api/skills')
+            ]);
+
+            this.stats = statsRes.data;
+            this.users = usersRes.data;
+            this.skills = skillsRes.data;
+          } catch (error) {
+            console.error('Failed to load data:', error);
+          }
+        },
+        async promoteToAdmin(userId) {
+          if (!confirm('确定要将此用户提升为管理员吗？')) return;
+
+          try {
+            await axios.patch(`/api/admin/users/${userId}`, { role: 'admin' });
+            alert('提升成功！');
+            await this.loadData();
+          } catch (error) {
+            alert(error.response?.data?.error || '操作失败');
+          }
+        },
+        async demoteToUser(userId) {
+          if (!confirm('确定要将此管理员降为普通用户吗？')) return;
+
+          try {
+            await axios.patch(`/api/admin/users/${userId}`, { role: 'user' });
+            alert('操作成功！');
+            await this.loadData();
+          } catch (error) {
+            alert(error.response?.data?.error || '操作失败');
+          }
+        },
+        async deleteUser(userId) {
+          if (!confirm('确定要删除此用户吗？此操作不可恢复！')) return;
+
+          try {
+            await axios.delete(`/api/admin/users/${userId}`);
+            alert('删除成功！');
+            await this.loadData();
+          } catch (error) {
+            alert(error.response?.data?.error || '删除失败');
+          }
+        },
+        async deleteSkill(skillId) {
+          if (!confirm('确定要删除此 Skill 吗？此操作不可恢复！')) return;
+
+          try {
+            await axios.delete(`/api/skills/${skillId}`);
+            alert('删除成功！');
+            await this.loadData();
+          } catch (error) {
+            alert(error.response?.data?.error || '删除失败');
+          }
+        },
+        async crawlSkill() {
+          this.crawlError = '';
+          this.crawlSuccess = '';
+          this.crawling = true;
+
+          try {
+            const res = await axios.post('/api/admin/crawl-skill', this.crawlForm);
+            this.crawlSuccess = `成功爬取并上传 Skill: ${res.data.skill.name}`;
+            this.crawlForm = { url: '', name: '', description: '', version: '1.0.0' };
+            await this.loadData();
+          } catch (error) {
+            this.crawlError = error.response?.data?.error || '爬取失败';
+          } finally {
+            this.crawling = false;
+          }
+        },
+        goToMainSite() {
+          window.location.href = '/';
+        },
+        logout() {
+          localStorage.removeItem('skills_house_token');
+          window.location.href = '/';
+        },
+        formatDate(dateString) {
+          return new Date(dateString).toLocaleDateString('zh-CN', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+          });
+        }
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

@@ -381,6 +381,167 @@ app.get('/api/skills/search', async (req, res) => {
   }
 });
 
+// ==================== 管理员 API ====================
+
+// 管理员权限中间件
+function requireAdmin(req, res, next) {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: '需要管理员权限' });
+  }
+  next();
+}
+
+// API: 获取所有用户（管理员）
+app.get('/api/admin/users', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const users = await readUsers();
+    // 不返回密码
+    const safeUsers = users.map(u => ({
+      id: u.id,
+      username: u.username,
+      email: u.email,
+      role: u.role,
+      createdAt: u.createdAt
+    }));
+    res.json(safeUsers);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API: 更新用户角色（管理员）
+app.patch('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { role } = req.body;
+
+    if (!['user', 'admin'].includes(role)) {
+      return res.status(400).json({ error: '无效的角色' });
+    }
+
+    const users = await readUsers();
+    const user = users.find(u => u.id === id);
+
+    if (!user) {
+      return res.status(404).json({ error: '用户不存在' });
+    }
+
+    user.role = role;
+    await writeUsers(users);
+
+    res.json({ success: true, user: { id: user.id, username: user.username, role: user.role } });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API: 删除用户（管理员）
+app.delete('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // 不能删除自己
+    if (id === req.user.id) {
+      return res.status(400).json({ error: '不能删除自己的账号' });
+    }
+
+    const users = await readUsers();
+    const filtered = users.filter(u => u.id !== id);
+
+    if (filtered.length === users.length) {
+      return res.status(404).json({ error: '用户不存在' });
+    }
+
+    await writeUsers(filtered);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API: 获取统计信息（管理员）
+app.get('/api/admin/stats', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const users = await readUsers();
+    const skills = await readMetadata();
+
+    const totalDownloads = skills.reduce((sum, skill) => sum + (skill.downloadCount || 0), 0);
+
+    res.json({
+      totalUsers: users.length,
+      totalSkills: skills.length,
+      totalDownloads,
+      adminUsers: users.filter(u => u.role === 'admin').length,
+      recentSkills: skills.slice(-5).reverse()
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API: 从 URL 爬取并上传 Skill（管理员）
+app.post('/api/admin/crawl-skill', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { url, name, description, version } = req.body;
+
+    if (!url || !name) {
+      return res.status(400).json({ error: 'URL 和名称不能为空' });
+    }
+
+    // 这里添加爬虫逻辑
+    // 示例：下载文件并上传
+    const axios = require('axios');
+    const tempFile = path.join(__dirname, '../uploads/temp', `crawled-${Date.now()}.zip`);
+
+    // 下载文件
+    const response = await axios({
+      method: 'get',
+      url: url,
+      responseType: 'stream'
+    });
+
+    const writer = require('fs').createWriteStream(tempFile);
+    response.data.pipe(writer);
+
+    await new Promise((resolve, reject) => {
+      writer.on('finish', resolve);
+      writer.on('error', reject);
+    });
+
+    // 创建 Skill
+    const skillId = `${name}-${Date.now()}`;
+    const skillDir = path.join(SKILLS_DIR, skillId);
+    await fs.mkdir(skillDir, { recursive: true });
+
+    // 解压
+    await extractZip(tempFile, { dir: skillDir });
+
+    // 保存元数据
+    const metadata = await readMetadata();
+    const newSkill = {
+      id: skillId,
+      name,
+      description: description || `Crawled from ${url}`,
+      version: version || '1.0.0',
+      author: 'admin',
+      uploadedAt: new Date().toISOString(),
+      downloadCount: 0,
+      uploadedBy: req.user.id,
+      crawledFrom: url
+    };
+
+    metadata.push(newSkill);
+    await writeMetadata(metadata);
+
+    // 清理临时文件
+    await fs.unlink(tempFile);
+
+    res.json({ success: true, skill: newSkill });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // 所有其他路由返回前端页面
 app.get('*', (req, res) => {
   const indexPath = path.join(__dirname, '../client/dist/index.html');
