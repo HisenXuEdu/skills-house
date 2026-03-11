@@ -691,7 +691,7 @@
       },
       async mounted() {
         if (!this.token) {
-          window.location.href = '/';
+          window.location.href = '/admin-login.html';
           return;
         }
 
@@ -703,13 +703,15 @@
 
           if (this.user.role !== 'admin') {
             alert('需要管理员权限');
-            window.location.href = '/';
+            localStorage.removeItem('skills_house_token');
+            window.location.href = '/admin-login.html';
             return;
           }
 
           await this.loadData();
         } catch (error) {
-          window.location.href = '/';
+          localStorage.removeItem('skills_house_token');
+          window.location.href = '/admin-login.html';
         }
       },
       methods: {
