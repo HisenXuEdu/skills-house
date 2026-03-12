@@ -1,6 +1,6 @@
 /**
- * SkillHub Sync Tool
- * 从 SkillHub 索引同步 Skills 到本地 Skills House
+ * SkillHub Sync Tool - Lightweight Version
+ * 只同步元数据，不下载文件
  */
 
 const axios = require('axios');
@@ -66,7 +66,6 @@ async function getSyncState() {
     const data = await fs.readFile(SYNC_STATE_FILE, 'utf-8');
     return JSON.parse(data);
   } catch (error) {
-    // 文件不存在，返回空状态
     return {
       lastSync: null,
       syncedSkills: {},
@@ -108,7 +107,11 @@ function needsSync(skillhubSkill, syncState, localMetadata) {
   const slug = skillhubSkill.slug;
   
   // 检查是否已经存在
-  const existingSkill = localMetadata.find(s => s.id === slug || s.name === skillhubSkill.name);
+  const existingSkill = localMetadata.find(s => 
+    s.id === slug || 
+    s.skillhub?.slug === slug
+  );
+  
   if (existingSkill) {
     // 已存在，检查是否有更新
     const lastSyncTime = syncState.syncedSkills[slug]?.syncedAt || 0;
@@ -122,43 +125,16 @@ function needsSync(skillhubSkill, syncState, localMetadata) {
 }
 
 /**
- * 同步单个 Skill
+ * 同步单个 Skill（只保存元数据，不下载文件）
  */
-async function syncSkill(skillhubSkill, userId = 'skillhub-sync') {
+async function syncSkillMetadata(skillhubSkill, userId = 'skillhub-sync') {
   const slug = skillhubSkill.slug;
   const cosUrl = SKILLHUB_COS_TEMPLATE.replace('{slug}', slug);
   
-  console.log(`📦 同步 Skill: ${skillhubSkill.name} (${slug})`);
+  console.log(`📋 同步元数据: ${skillhubSkill.name} (${slug})`);
   
   try {
-    // 1. 下载 Skill 压缩包
-    console.log(`   📥 下载: ${cosUrl}`);
-    const response = await axios.get(cosUrl, {
-      responseType: 'arraybuffer',
-      timeout: 30000
-    });
-    
-    // 2. 保存到本地
-    const zipFilename = `${slug}.zip`;
-    const zipPath = path.join(__dirname, '../uploads', zipFilename);
-    await fs.writeFile(zipPath, response.data);
-    
-    // 3. 解压并提取 SKILL.md
-    const skillDir = path.join(__dirname, '../uploads', slug);
-    await fs.mkdir(skillDir, { recursive: true });
-    
-    const { execSync } = require('child_process');
-    execSync(`unzip -q -o "${zipPath}" -d "${skillDir}"`, { stdio: 'inherit' });
-    
-    // 4. 读取 SKILL.md
-    let skillMdContent = '';
-    try {
-      skillMdContent = await fs.readFile(path.join(skillDir, 'SKILL.md'), 'utf-8');
-    } catch (error) {
-      console.log(`   ⚠️ 未找到 SKILL.md`);
-    }
-    
-    // 5. 创建 metadata
+    // 创建 metadata（只保存 URL，不下载文件）
     const metadata = {
       id: slug,
       name: skillhubSkill.name,
@@ -166,22 +142,31 @@ async function syncSkill(skillhubSkill, userId = 'skillhub-sync') {
       version: skillhubSkill.version || '1.0.0',
       uploadedBy: userId,
       uploadedAt: new Date().toISOString(),
-      zipFile: zipFilename,
-      skillMd: skillMdContent,
+      
+      // 存储方式：URL（不下载文件）
+      storageType: 'url',
+      downloadUrl: cosUrl,
+      
+      // SkillHub 元数据
       skillhub: {
         slug: slug,
         source: skillhubSkill.source,
         homepage: skillhubSkill.homepage,
+        originalZipUrl: skillhubSkill.zip_url,
         stats: skillhubSkill.stats,
         tags: skillhubSkill.tags || [],
         updated_at: skillhubSkill.updated_at
       },
+      
       downloadCount: 0
     };
     
-    // 6. 更新本地 metadata
+    // 更新本地 metadata
     const localMetadata = await getLocalMetadata();
-    const existingIndex = localMetadata.findIndex(s => s.id === slug);
+    const existingIndex = localMetadata.findIndex(s => 
+      s.id === slug || 
+      s.skillhub?.slug === slug
+    );
     
     if (existingIndex >= 0) {
       // 更新现有 Skill
@@ -198,9 +183,6 @@ async function syncSkill(skillhubSkill, userId = 'skillhub-sync') {
     }
     
     await saveLocalMetadata(localMetadata);
-    
-    // 7. 清理临时文件
-    await fs.rm(skillDir, { recursive: true, force: true });
     
     return {
       success: true,
@@ -221,17 +203,16 @@ async function syncSkill(skillhubSkill, userId = 'skillhub-sync') {
 }
 
 /**
- * 增量同步 Skills
+ * 增量同步 Skills（只同步元数据）
  */
 async function syncSkills(options = {}) {
   const {
-    limit = null,          // 限制同步数量（null = 全部）
-    forceSync = false,     // 强制重新同步所有
-    filterCategory = null, // 按分类过滤
+    limit = null,
+    forceSync = false,
     userId = 'skillhub-sync'
   } = options;
   
-  console.log('\n🚀 开始 SkillHub 同步...\n');
+  console.log('\n🚀 开始 SkillHub 元数据同步...\n');
   
   // 1. 获取 SkillHub 索引
   const skillhubIndex = await fetchSkillHubIndex();
@@ -250,11 +231,6 @@ async function syncSkills(options = {}) {
   
   // 4. 筛选需要同步的 Skills
   let skillsToSync = skillhubIndex.skills;
-  
-  if (filterCategory) {
-    console.log(`🔍 按分类过滤: ${filterCategory}`);
-    // 这里可以添加分类过滤逻辑（如果 SkillHub 索引包含分类信息）
-  }
   
   if (!forceSync) {
     skillsToSync = skillsToSync.filter(skill => 
@@ -280,7 +256,7 @@ async function syncSkills(options = {}) {
     };
   }
   
-  // 5. 开始同步
+  // 5. 开始同步（只同步元数据，不下载文件）
   const results = {
     total: skillsToSync.length,
     success: 0,
@@ -292,7 +268,7 @@ async function syncSkills(options = {}) {
     const skill = skillsToSync[i];
     console.log(`\n[${i + 1}/${skillsToSync.length}]`);
     
-    const result = await syncSkill(skill, userId);
+    const result = await syncSkillMetadata(skill, userId);
     results.details.push(result);
     
     if (result.success) {
@@ -308,8 +284,8 @@ async function syncSkills(options = {}) {
       results.failed++;
     }
     
-    // 每 10 个保存一次状态
-    if ((i + 1) % 10 === 0) {
+    // 每 50 个保存一次状态
+    if ((i + 1) % 50 === 0) {
       syncState.totalSynced = Object.keys(syncState.syncedSkills).length;
       syncState.lastSync = new Date().toISOString();
       await saveSyncState(syncState);
@@ -342,7 +318,6 @@ if (require.main === module) {
   const args = process.argv.slice(2);
   const options = {};
   
-  // 解析命令行参数
   for (let i = 0; i < args.length; i++) {
     switch (args[i]) {
       case '--limit':
@@ -350,9 +325,6 @@ if (require.main === module) {
         break;
       case '--force':
         options.forceSync = true;
-        break;
-      case '--category':
-        options.filterCategory = args[++i];
         break;
     }
   }

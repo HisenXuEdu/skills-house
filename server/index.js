@@ -288,6 +288,27 @@ app.post('/api/skills/upload', authenticateToken, upload.single('file'), async (
 app.get('/api/skills/:id/download', async (req, res) => {
   try {
     const { id } = req.params;
+    const metadata = await readMetadata();
+    const skill = metadata.find(s => s.id === id);
+
+    if (!skill) {
+      return res.status(404).json({ error: 'Skill 不存在' });
+    }
+
+    // 检查存储类型
+    if (skill.storageType === 'url') {
+      // URL 类型：重定向到远程下载地址
+      console.log(`📥 重定向下载: ${skill.name} -> ${skill.downloadUrl}`);
+      
+      // 更新下载次数
+      skill.downloadCount = (skill.downloadCount || 0) + 1;
+      await writeMetadata(metadata);
+      
+      // 重定向到 SkillHub COS URL
+      return res.redirect(skill.downloadUrl);
+    }
+
+    // 文件类型：从本地打包下载
     const skillDir = path.join(SKILLS_DIR, id);
 
     // 检查目录是否存在
@@ -295,17 +316,17 @@ app.get('/api/skills/:id/download', async (req, res) => {
 
     // 创建 zip 压缩包
     const zipPath = path.join(__dirname, `../uploads/temp/${id}.zip`);
+    
+    // 确保 temp 目录存在
+    await fs.mkdir(path.join(__dirname, '../uploads/temp'), { recursive: true });
+    
     const output = require('fs').createWriteStream(zipPath);
     const archive = archiver('zip', { zlib: { level: 9 } });
 
     output.on('close', async () => {
       // 更新下载次数
-      const metadata = await readMetadata();
-      const skill = metadata.find(s => s.id === id);
-      if (skill) {
-        skill.downloadCount = (skill.downloadCount || 0) + 1;
-        await writeMetadata(metadata);
-      }
+      skill.downloadCount = (skill.downloadCount || 0) + 1;
+      await writeMetadata(metadata);
 
       // 发送文件
       res.download(zipPath, `${id}.zip`, async (err) => {
@@ -324,7 +345,7 @@ app.get('/api/skills/:id/download', async (req, res) => {
     archive.directory(skillDir, false);
     archive.finalize();
   } catch (error) {
-    res.status(404).json({ error: 'Skill 不存在' });
+    res.status(404).json({ error: 'Skill 不存在或下载失败' });
   }
 });
 
