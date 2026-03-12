@@ -1,0 +1,1094 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Skills House - Professional Platform</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/vue@3.3.11/dist/vue.global.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios@1.6.2/dist/axios.min.js"></script>
+  <style>
+    :root {
+      --primary-bg: #010202;
+      --secondary-bg: #0A0B0B;
+      --card-bg: #151617;
+      --dark-gray: #5C5E5D;
+      --mid-gray: #AAABAB;
+      --light-gray: #C7D2D0;
+      --mint-green: #A3F6D5;
+      --dark-green: #2E5345;
+      --sea-green: #5EA68D;
+      --text-primary: #FFFFFF;
+      --text-secondary: #C7D2D0;
+      --text-muted: #AAABAB;
+      --accent: #A3F6D5;
+      --shadow-glow: rgba(163, 246, 213, 0.15);
+      --gradient-accent: linear-gradient(135deg, #A3F6D5 0%, #5EA68D 100%);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Sora', -apple-system, sans-serif;
+      background: var(--primary-bg);
+      color: var(--text-primary);
+      overflow-x: hidden;
+      line-height: 1.6;
+    }
+
+    /* 网格背景 */
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: 
+        linear-gradient(rgba(163, 246, 213, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(163, 246, 213, 0.03) 1px, transparent 1px);
+      background-size: 60px 60px;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* 发光效果 */
+    body::after {
+      content: '';
+      position: fixed;
+      top: -50%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle, rgba(163, 246, 213, 0.08) 0%, transparent 70%);
+      z-index: 0;
+      pointer-events: none;
+      animation: pulse 8s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.5; transform: translateX(-50%) scale(1); }
+      50% { opacity: 1; transform: translateX(-50%) scale(1.1); }
+    }
+
+    .app-container {
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Header */
+    .header {
+      background: rgba(1, 2, 2, 0.85);
+      backdrop-filter: blur(20px) saturate(180%);
+      border-bottom: 1px solid rgba(163, 246, 213, 0.1);
+      padding: 1.5rem 0;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      animation: slideDown 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+    }
+
+    .header-content {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo {
+      font-family: 'Sora', sans-serif;
+      font-size: 1.8rem;
+      font-weight: 800;
+      letter-spacing: -1px;
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      color: var(--text-primary);
+    }
+
+    .logo-icon {
+      font-size: 2rem;
+      background: var(--gradient-accent);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0 20px var(--shadow-glow));
+    }
+
+    .logo-text {
+      background: var(--gradient-accent);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .user-section {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    .user-badge {
+      padding: 0.7rem 1.5rem;
+      background: rgba(163, 246, 213, 0.1);
+      border: 1px solid rgba(163, 246, 213, 0.2);
+      border-radius: 8px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: all 0.3s ease;
+    }
+
+    .user-badge:hover {
+      background: rgba(163, 246, 213, 0.15);
+      box-shadow: 0 0 20px var(--shadow-glow);
+      transform: translateY(-2px);
+    }
+
+    .btn {
+      padding: 0.8rem 1.8rem;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      font-family: 'Sora', sans-serif;
+      letter-spacing: -0.3px;
+    }
+
+    .btn-primary {
+      background: var(--gradient-accent);
+      color: var(--primary-bg);
+      box-shadow: 0 0 30px var(--shadow-glow);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-primary::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+      transition: left 0.5s;
+    }
+
+    .btn-primary:hover::before {
+      left: 100%;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-3px) scale(1.02);
+      box-shadow: 0 0 40px rgba(163, 246, 213, 0.4);
+    }
+
+    .btn-secondary {
+      background: transparent;
+      border: 1px solid rgba(163, 246, 213, 0.3);
+      color: var(--accent);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(163, 246, 213, 0.1);
+      border-color: var(--accent);
+      transform: translateY(-2px);
+    }
+
+    /* 认证页面 */
+    .auth-page {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+
+    .auth-card {
+      background: var(--card-bg);
+      border: 1px solid rgba(163, 246, 213, 0.15);
+      border-radius: 16px;
+      padding: 3rem;
+      max-width: 500px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5),
+                  0 0 0 1px rgba(163, 246, 213, 0.1);
+      animation: fadeInUp 1s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .auth-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background: var(--gradient-accent);
+      opacity: 0.8;
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(40px);
+      }
+    }
+
+    .auth-title {
+      font-family: 'Sora', sans-serif;
+      font-size: 2.5rem;
+      font-weight: 800;
+      text-align: center;
+      margin-bottom: 0.5rem;
+      letter-spacing: -1px;
+      background: var(--gradient-accent);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .auth-subtitle {
+      text-align: center;
+      color: var(--text-secondary);
+      margin-bottom: 2.5rem;
+      font-size: 0.95rem;
+    }
+
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+
+    .form-label {
+      display: block;
+      margin-bottom: 0.6rem;
+      color: var(--text-secondary);
+      font-weight: 500;
+      font-size: 0.9rem;
+      font-family: 'IBM Plex Mono', monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 1rem 1.2rem;
+      border: 1px solid rgba(163, 246, 213, 0.2);
+      border-radius: 8px;
+      font-size: 1rem;
+      font-family: 'Sora', sans-serif;
+      transition: all 0.3s ease;
+      background: rgba(163, 246, 213, 0.05);
+      color: var(--text-primary);
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(163, 246, 213, 0.1);
+      background: rgba(163, 246, 213, 0.08);
+    }
+
+    .form-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .error-message {
+      background: rgba(255, 107, 107, 0.1);
+      border-left: 3px solid #ff6b6b;
+      color: #ff9999;
+      padding: 1rem 1.2rem;
+      border-radius: 8px;
+      margin-bottom: 1.5rem;
+      font-size: 0.9rem;
+      animation: shake 0.5s ease;
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-10px); }
+      75% { transform: translateX(10px); }
+    }
+
+    .auth-toggle {
+      text-align: center;
+      margin-top: 1.5rem;
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    .auth-toggle a {
+      color: var(--accent);
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.3s ease;
+      border-bottom: 1px solid transparent;
+    }
+
+    .auth-toggle a:hover {
+      border-bottom-color: var(--accent);
+    }
+
+    /* 主内容 */
+    .main-content {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 3rem 2rem;
+    }
+
+    .action-bar {
+      display: flex;
+      gap: 1.5rem;
+      margin-bottom: 3rem;
+      flex-wrap: wrap;
+      animation: fadeInUp 1s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both;
+    }
+
+    .search-container {
+      flex: 1;
+      min-width: 300px;
+      position: relative;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 1rem 1.5rem 1rem 3.5rem;
+      border: 1px solid rgba(163, 246, 213, 0.2);
+      border-radius: 8px;
+      font-size: 1rem;
+      font-family: 'Sora', sans-serif;
+      background: rgba(163, 246, 213, 0.05);
+      color: var(--text-primary);
+      transition: all 0.3s ease;
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 30px var(--shadow-glow);
+      background: rgba(163, 246, 213, 0.08);
+    }
+
+    .search-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 1.2rem;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 1.2rem;
+      color: var(--accent);
+    }
+
+    /* Skills 网格 */
+    .skills-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+      gap: 2rem;
+      animation: fadeInUp 1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.4s both;
+    }
+
+    .skill-card {
+      background: var(--card-bg);
+      border: 1px solid rgba(163, 246, 213, 0.1);
+      border-radius: 12px;
+      padding: 2rem;
+      transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .skill-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background: var(--gradient-accent);
+      transform: scaleX(0);
+      transform-origin: left;
+      transition: transform 0.4s ease;
+    }
+
+    .skill-card:hover::before {
+      transform: scaleX(1);
+    }
+
+    .skill-card:hover {
+      transform: translateY(-8px);
+      border-color: var(--accent);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4),
+                  0 0 40px var(--shadow-glow);
+    }
+
+    .skill-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1rem;
+    }
+
+    .skill-name {
+      font-family: 'Sora', sans-serif;
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 0.5rem;
+      letter-spacing: -0.5px;
+    }
+
+    .skill-badge {
+      padding: 0.4rem 1rem;
+      background: rgba(163, 246, 213, 0.15);
+      border: 1px solid rgba(163, 246, 213, 0.3);
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--accent);
+      font-family: 'IBM Plex Mono', monospace;
+    }
+
+    .skill-meta {
+      display: flex;
+      gap: 1.5rem;
+      margin-bottom: 1rem;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      font-family: 'IBM Plex Mono', monospace;
+    }
+
+    .skill-meta span {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .skill-description {
+      color: var(--text-secondary);
+      line-height: 1.7;
+      margin-bottom: 1.5rem;
+      font-size: 0.95rem;
+    }
+
+    .skill-actions {
+      display: flex;
+      gap: 0.8rem;
+    }
+
+    .btn-download {
+      flex: 1;
+      padding: 1rem;
+      background: var(--gradient-accent);
+      color: var(--primary-bg);
+      border: none;
+      border-radius: 8px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-family: 'Sora', sans-serif;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-download::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+      transition: left 0.5s;
+    }
+
+    .btn-download:hover::before {
+      left: 100%;
+    }
+
+    .btn-download:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px var(--shadow-glow);
+    }
+
+    .btn-delete {
+      padding: 1rem 1.2rem;
+      background: rgba(255, 107, 107, 0.1);
+      color: #ff6b6b;
+      border: 1px solid rgba(255, 107, 107, 0.3);
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-family: 'Sora', sans-serif;
+    }
+
+    .btn-delete:hover {
+      background: rgba(255, 107, 107, 0.2);
+      border-color: #ff6b6b;
+      transform: translateY(-2px);
+    }
+
+    /* 模态框 */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(1, 2, 2, 0.9);
+      backdrop-filter: blur(10px);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+
+    .modal.active {
+      display: flex;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+    }
+
+    .modal-content {
+      background: var(--card-bg);
+      border: 1px solid rgba(163, 246, 213, 0.2);
+      border-radius: 16px;
+      padding: 2.5rem;
+      max-width: 600px;
+      width: 100%;
+      max-height: 85vh;
+      overflow-y: auto;
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+      animation: modalSlide 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+    }
+
+    .modal-content::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background: var(--gradient-accent);
+    }
+
+    @keyframes modalSlide {
+      from {
+        opacity: 0;
+        transform: scale(0.95) translateY(20px);
+      }
+    }
+
+    .modal-title {
+      font-family: 'Sora', sans-serif;
+      font-size: 2rem;
+      font-weight: 800;
+      margin-bottom: 2rem;
+      letter-spacing: -0.5px;
+      background: var(--gradient-accent);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    /* 空状态 */
+    .empty-state {
+      text-align: center;
+      padding: 6rem 2rem;
+      animation: fadeInUp 1s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .empty-icon {
+      font-size: 5rem;
+      margin-bottom: 1.5rem;
+      opacity: 0.5;
+      filter: grayscale(100%);
+    }
+
+    .empty-title {
+      font-family: 'Sora', sans-serif;
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 0.8rem;
+      letter-spacing: -0.5px;
+    }
+
+    .empty-text {
+      color: var(--text-muted);
+      font-size: 1.1rem;
+    }
+
+    /* 加载状态 */
+    .loading {
+      text-align: center;
+      padding: 4rem 2rem;
+      color: var(--text-muted);
+    }
+
+    .loading-spinner {
+      width: 48px;
+      height: 48px;
+      border: 3px solid rgba(163, 246, 213, 0.2);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 1.5rem;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* 响应式 */
+    @media (max-width: 768px) {
+      .header-content {
+        flex-direction: column;
+        gap: 1rem;
+      }
+
+      .action-bar {
+        flex-direction: column;
+      }
+
+      .skills-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .auth-card {
+        padding: 2rem;
+      }
+
+      .logo {
+        font-size: 1.5rem;
+      }
+    }
+
+    /* 滚动条 */
+    ::-webkit-scrollbar {
+      width: 10px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--secondary-bg);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--gradient-accent);
+      border-radius: 10px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--accent);
+    }
+  </style>
+</head>
+<body>
+  <div id="app" class="app-container">
+    <!-- 认证页面 -->
+    <div v-if="!user" class="auth-page">
+      <div class="auth-card">
+        <h1 class="auth-title">{{ isLogin ? 'Welcome Back' : 'Join Us' }}</h1>
+        <p class="auth-subtitle">{{ isLogin ? 'Login to Skills House' : 'Create your account' }}</p>
+        
+        <div v-if="error" class="error-message">{{ error }}</div>
+        
+        <form @submit.prevent="handleAuth">
+          <div class="form-group">
+            <label class="form-label">Username</label>
+            <input 
+              v-model="authForm.username" 
+              type="text" 
+              class="form-input" 
+              placeholder="Enter your username"
+              required
+              :disabled="loading"
+            >
+          </div>
+          
+          <div class="form-group" v-if="!isLogin">
+            <label class="form-label">Email (Optional)</label>
+            <input 
+              v-model="authForm.email" 
+              type="email" 
+              class="form-input" 
+              placeholder="your@email.com"
+              :disabled="loading"
+            >
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <input 
+              v-model="authForm.password" 
+              type="password" 
+              class="form-input" 
+              placeholder="Enter your password"
+              required
+              :disabled="loading"
+            >
+          </div>
+          
+          <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;" :disabled="loading">
+            {{ loading ? 'Processing...' : (isLogin ? 'Login' : 'Register') }}
+          </button>
+        </form>
+        
+        <div class="auth-toggle">
+          {{ isLogin ? 'Don\'t have an account?' : 'Already have an account?' }}
+          <a @click="toggleAuthMode">{{ isLogin ? 'Sign up' : 'Sign in' }}</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- 主应用 -->
+    <div v-else>
+      <header class="header">
+        <div class="header-content">
+          <div class="logo">
+            <span class="logo-icon">◆</span>
+            <span class="logo-text">SKILLS HOUSE</span>
+          </div>
+          <div class="user-section">
+            <div class="user-badge">
+              <span>⬡</span>
+              <span>{{ user.username }}</span>
+            </div>
+            <button @click="logout" class="btn btn-secondary">Logout</button>
+          </div>
+        </div>
+      </header>
+
+      <main class="main-content">
+        <div class="action-bar">
+          <div class="search-container">
+            <span class="search-icon">⌕</span>
+            <input 
+              v-model="searchQuery" 
+              @input="searchSkills" 
+              type="text" 
+              class="search-input" 
+              placeholder="Search skills..."
+            >
+          </div>
+          <button @click="showUploadModal = true" class="btn btn-primary">
+            Upload Skill
+          </button>
+        </div>
+
+        <div v-if="loading" class="loading">
+          <div class="loading-spinner"></div>
+          <p>Loading...</p>
+        </div>
+        
+        <div v-else-if="skills.length === 0" class="empty-state">
+          <div class="empty-icon">◇</div>
+          <h2 class="empty-title">No Skills Yet</h2>
+          <p class="empty-text">Upload your first skill to get started</p>
+        </div>
+
+        <div v-else class="skills-grid">
+          <div v-for="(skill, index) in skills" :key="skill.id" class="skill-card" :style="{ animationDelay: (index * 0.08) + 's' }">
+            <div class="skill-header">
+              <div>
+                <h3 class="skill-name">{{ skill.name }}</h3>
+                <div class="skill-meta">
+                  <span>{{ skill.author }}</span>
+                  <span>↓ {{ skill.downloadCount || 0 }}</span>
+                </div>
+              </div>
+              <div class="skill-badge">{{ skill.version }}</div>
+            </div>
+            <p class="skill-description">{{ skill.description || 'No description available' }}</p>
+            <div class="skill-meta" style="margin-bottom: 1.5rem;">
+              <span>{{ formatDate(skill.uploadedAt) }}</span>
+            </div>
+            <div class="skill-actions">
+              <button @click="downloadSkill(skill.id, skill.name)" class="btn-download">
+                Download
+              </button>
+              <button 
+                v-if="canDelete(skill)" 
+                @click="deleteSkill(skill.id)" 
+                class="btn-delete"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <!-- 上传模态框 -->
+      <div class="modal" :class="{ active: showUploadModal }">
+        <div class="modal-content">
+          <h2 class="modal-title">Upload New Skill</h2>
+          <form @submit.prevent="uploadSkill">
+            <div class="form-group">
+              <label class="form-label">Skill Name *</label>
+              <input 
+                v-model="uploadForm.name" 
+                type="text" 
+                class="form-input" 
+                placeholder="e.g. my-awesome-skill"
+                required
+                :disabled="uploading"
+              >
+            </div>
+            <div class="form-group">
+              <label class="form-label">Description</label>
+              <textarea 
+                v-model="uploadForm.description" 
+                class="form-input" 
+                rows="3"
+                placeholder="Describe what this skill does..."
+                :disabled="uploading"
+                style="resize: vertical;"
+              ></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Version</label>
+              <input 
+                v-model="uploadForm.version" 
+                type="text" 
+                class="form-input" 
+                placeholder="1.0.0"
+                :disabled="uploading"
+              >
+            </div>
+            <div class="form-group">
+              <label class="form-label">Skill File (.zip, .tgz, .tar.gz) *</label>
+              <input 
+                @change="handleFileSelect" 
+                type="file" 
+                class="form-input" 
+                accept=".zip,.tgz,.tar.gz"
+                required
+                :disabled="uploading"
+              >
+            </div>
+            <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+              <button type="submit" class="btn btn-primary" style="flex: 1;" :disabled="uploading">
+                {{ uploading ? 'Uploading...' : 'Upload' }}
+              </button>
+              <button 
+                type="button" 
+                @click="closeUploadModal" 
+                class="btn btn-secondary"
+                :disabled="uploading"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp } = Vue;
+
+    createApp({
+      data() {
+        return {
+          user: null,
+          token: localStorage.getItem('skills_house_token'),
+          isLogin: true,
+          authForm: {
+            username: '',
+            password: '',
+            email: ''
+          },
+          skills: [],
+          searchQuery: '',
+          loading: false,
+          uploading: false,
+          showUploadModal: false,
+          uploadForm: {
+            name: '',
+            description: '',
+            version: '1.0.0',
+            file: null
+          },
+          error: ''
+        };
+      },
+      async mounted() {
+        if (this.token) {
+          axios.defaults.headers.common['Authorization'] = `Bearer ${this.token}`;
+          await this.verifyToken();
+        }
+        
+        if (this.user) {
+          await this.fetchSkills();
+        }
+      },
+      methods: {
+        async verifyToken() {
+          try {
+            const res = await axios.get('/api/auth/me');
+            this.user = res.data.user;
+          } catch (error) {
+            localStorage.removeItem('skills_house_token');
+            this.token = null;
+            delete axios.defaults.headers.common['Authorization'];
+          }
+        },
+        async handleAuth() {
+          this.error = '';
+          this.loading = true;
+          
+          try {
+            const endpoint = this.isLogin ? '/api/auth/login' : '/api/auth/register';
+            const res = await axios.post(endpoint, this.authForm);
+            
+            this.token = res.data.token;
+            this.user = res.data.user;
+            localStorage.setItem('skills_house_token', this.token);
+            axios.defaults.headers.common['Authorization'] = `Bearer ${this.token}`;
+            
+            await this.fetchSkills();
+          } catch (error) {
+            this.error = error.response?.data?.error || 'Operation failed, please try again';
+          } finally {
+            this.loading = false;
+          }
+        },
+        toggleAuthMode() {
+          this.isLogin = !this.isLogin;
+          this.error = '';
+          this.authForm = { username: '', password: '', email: '' };
+        },
+        logout() {
+          this.user = null;
+          this.token = null;
+          localStorage.removeItem('skills_house_token');
+          delete axios.defaults.headers.common['Authorization'];
+          this.skills = [];
+        },
+        async fetchSkills() {
+          this.loading = true;
+          try {
+            const res = await axios.get('/api/skills');
+            this.skills = res.data;
+          } catch (error) {
+            console.error('Failed to fetch skills:', error);
+          } finally {
+            this.loading = false;
+          }
+        },
+        async searchSkills() {
+          if (!this.searchQuery.trim()) {
+            await this.fetchSkills();
+            return;
+          }
+          this.loading = true;
+          try {
+            const res = await axios.get(`/api/skills/search?q=${encodeURIComponent(this.searchQuery)}`);
+            this.skills = res.data;
+          } catch (error) {
+            console.error('Search failed:', error);
+          } finally {
+            this.loading = false;
+          }
+        },
+        handleFileSelect(event) {
+          this.uploadForm.file = event.target.files[0];
+        },
+        async uploadSkill() {
+          if (!this.uploadForm.file) {
+            alert('Please select a file');
+            return;
+          }
+          
+          this.uploading = true;
+          const formData = new FormData();
+          formData.append('file', this.uploadForm.file);
+          formData.append('name', this.uploadForm.name);
+          formData.append('description', this.uploadForm.description);
+          formData.append('version', this.uploadForm.version);
+
+          try {
+            await axios.post('/api/skills/upload', formData, {
+              headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            alert('Upload successful!');
+            this.closeUploadModal();
+            await this.fetchSkills();
+          } catch (error) {
+            alert(error.response?.data?.error || 'Upload failed');
+          } finally {
+            this.uploading = false;
+          }
+        },
+        closeUploadModal() {
+          this.showUploadModal = false;
+          this.uploadForm = {
+            name: '',
+            description: '',
+            version: '1.0.0',
+            file: null
+          };
+        },
+        downloadSkill(id, name) {
+          window.location.href = `/api/skills/${id}/download`;
+        },
+        async deleteSkill(id) {
+          if (!confirm('Are you sure you want to delete this skill?')) return;
+          
+          try {
+            await axios.delete(`/api/skills/${id}`);
+            alert('Deleted successfully!');
+            await this.fetchSkills();
+          } catch (error) {
+            alert(error.response?.data?.error || 'Delete failed');
+          }
+        },
+        canDelete(skill) {
+          return this.user && (this.user.role === 'admin' || skill.author === this.user.username);
+        },
+        formatDate(dateString) {
+          return new Date(dateString).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+          });
+        }
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>
