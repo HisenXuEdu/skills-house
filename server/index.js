@@ -542,6 +542,78 @@ app.post('/api/admin/crawl-skill', authenticateToken, requireAdmin, async (req, 
   }
 });
 
+// SkillHub 同步 API
+const skillhubSync = require('./skillhub-sync');
+
+// 获取 SkillHub 同步状态
+app.get('/api/skillhub/status', authenticate, async (req, res) => {
+  try {
+    const state = await skillhubSync.getSyncState();
+    const localMetadata = await readMetadata();
+    
+    res.json({
+      success: true,
+      state: {
+        lastSync: state.lastSync,
+        totalSynced: state.totalSynced,
+        localSkills: localMetadata.length,
+        syncedSkills: Object.keys(state.syncedSkills).length
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 触发增量同步
+app.post('/api/skillhub/sync', authenticate, isAdmin, async (req, res) => {
+  try {
+    const { limit, forceSync } = req.body;
+    
+    // 在后台执行同步（不阻塞响应）
+    res.json({ 
+      success: true, 
+      message: '同步任务已启动，请稍后查看状态'
+    });
+    
+    // 异步执行同步
+    skillhubSync.syncSkills({
+      limit: limit || 10,
+      forceSync: forceSync || false,
+      userId: req.user.id
+    }).catch(error => {
+      console.error('SkillHub 同步错误:', error);
+    });
+    
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 获取 SkillHub 索引预览
+app.get('/api/skillhub/preview', authenticate, isAdmin, async (req, res) => {
+  try {
+    const index = await skillhubSync.fetchSkillHubIndex();
+    
+    // 返回前 50 个 Skills 预览
+    res.json({
+      success: true,
+      total: index.skills.length,
+      preview: index.skills.slice(0, 50).map(skill => ({
+        slug: skill.slug,
+        name: skill.name,
+        description: skill.description,
+        downloads: skill.stats.downloads,
+        stars: skill.stats.stars,
+        version: skill.version,
+        tags: skill.tags || []
+      }))
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // 所有其他路由返回前端页面
 app.get('*', (req, res) => {
   const indexPath = path.join(__dirname, '../client/dist/index.html');

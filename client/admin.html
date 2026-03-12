@@ -491,7 +491,7 @@
           Skills 管理
         </button>
         <button class="tab" :class="{ active: activeTab === 'crawler' }" @click="activeTab = 'crawler'">
-          爬虫工具
+          🔄 SkillHub 同步
         </button>
       </div>
 
@@ -588,10 +588,161 @@
         </div>
       </div>
 
-      <!-- 爬虫工具 -->
+      <!-- SkillHub 同步工具 -->
       <div v-if="activeTab === 'crawler'">
+        <!-- 同步状态 -->
         <div class="form-section">
-          <h2 class="form-title">从 URL 爬取 Skill</h2>
+          <h2 class="form-title">🔄 SkillHub 同步状态</h2>
+          
+          <div v-if="skillhubStatus" class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-number">{{ skillhubStatus.totalSynced || 0 }}</div>
+              <div class="stat-label">已同步 Skills</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-number">{{ skillhubStatus.localSkills || 0 }}</div>
+              <div class="stat-label">本地 Skills</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-number">{{ skillhubStatus.syncedSkills || 0 }}</div>
+              <div class="stat-label">同步记录</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-number" style="font-size: 14px;">
+                {{ skillhubStatus.lastSync ? new Date(skillhubStatus.lastSync).toLocaleString('zh-CN') : '从未' }}
+              </div>
+              <div class="stat-label">上次同步</div>
+            </div>
+          </div>
+
+          <button @click="loadSkillHubStatus" class="btn btn-secondary" style="margin-top: 20px;">
+            🔄 刷新状态
+          </button>
+        </div>
+
+        <!-- 增量同步 -->
+        <div class="form-section">
+          <h2 class="form-title">⚡ 增量同步</h2>
+          
+          <div v-if="syncError" class="error-message">{{ syncError }}</div>
+          <div v-if="syncSuccess" class="success-message">{{ syncSuccess }}</div>
+
+          <form @submit.prevent="startSync">
+            <div class="form-group">
+              <label class="form-label">同步数量限制</label>
+              <input 
+                v-model.number="syncForm.limit" 
+                type="number" 
+                class="form-input" 
+                placeholder="10"
+                min="1"
+                max="1000"
+                :disabled="syncing"
+              >
+              <small style="color: var(--text-muted);">
+                每次同步的最大 Skills 数量（留空 = 全部增量更新）
+              </small>
+            </div>
+
+            <div class="form-group">
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input 
+                  v-model="syncForm.forceSync" 
+                  type="checkbox"
+                  :disabled="syncing"
+                  style="width: 20px; height: 20px;"
+                >
+                <span class="form-label" style="margin: 0;">强制重新同步所有 Skills</span>
+              </label>
+              <small style="color: var(--text-muted); margin-left: 30px;">
+                ⚠️ 启用后将忽略已同步状态，重新下载所有 Skills
+              </small>
+            </div>
+
+            <div class="form-actions" style="display: flex; gap: 15px;">
+              <button type="submit" class="btn btn-primary" :disabled="syncing">
+                {{ syncing ? '同步中...' : '🚀 开始增量同步' }}
+              </button>
+              
+              <button 
+                type="button" 
+                @click="previewSkillHub" 
+                class="btn btn-secondary"
+                :disabled="previewing"
+              >
+                {{ previewing ? '加载中...' : '👀 预览 SkillHub' }}
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- SkillHub 预览 -->
+        <div v-if="skillhubPreview" class="form-section">
+          <h2 class="form-title">📋 SkillHub 索引预览 (Top 50)</h2>
+          
+          <div style="margin-bottom: 15px; color: var(--text-secondary);">
+            总共 <strong style="color: var(--mint-green);">{{ skillhubPreview.total }}</strong> 个 Skills
+          </div>
+
+          <div class="table-container">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Slug</th>
+                  <th>名称</th>
+                  <th>描述</th>
+                  <th>下载量</th>
+                  <th>收藏</th>
+                  <th>版本</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="skill in skillhubPreview.preview" :key="skill.slug">
+                  <td style="font-family: 'IBM Plex Mono', monospace; color: var(--mint-green);">
+                    {{ skill.slug }}
+                  </td>
+                  <td><strong>{{ skill.name }}</strong></td>
+                  <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    {{ skill.description }}
+                  </td>
+                  <td>{{ skill.downloads.toLocaleString() }}</td>
+                  <td>{{ skill.stars }}</td>
+                  <td>{{ skill.version }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 使用说明 -->
+        <div class="form-section">
+          <h2 class="form-title">📖 使用说明</h2>
+          <ul style="color: var(--text-secondary); line-height: 2;">
+            <li><strong>增量同步</strong>：只同步新增或更新的 Skills，已存在的跳过</li>
+            <li><strong>强制同步</strong>：重新下载所有 Skills，无论是否已存在</li>
+            <li><strong>同步来源</strong>：https://skillhub.tencent.com/ (腾讯云 COS 加速)</li>
+            <li><strong>下载地址</strong>：直接从 COS 拼接地址下载（绕过负载均衡器）</li>
+            <li><strong>同步状态</strong>：自动保存，下次同步时跳过已同步的 Skills</li>
+            <li><strong>数量限制</strong>：建议首次同步设置较小数量（如 10-50），测试成功后再增加</li>
+          </ul>
+          
+          <div style="margin-top: 20px; padding: 15px; background: var(--secondary-bg); border-radius: 12px; border: 1px solid var(--card-bg);">
+            <strong style="color: var(--mint-green);">💡 提示</strong>
+            <p style="margin-top: 10px; color: var(--text-secondary);">
+              SkillHub 索引包含 <strong>12,891</strong> 个 Skills。首次同步建议：
+            </p>
+            <ol style="margin-top: 10px; color: var(--text-secondary); line-height: 2;">
+              <li>先点击 "预览 SkillHub" 查看可用的 Skills</li>
+              <li>设置同步数量为 10，测试同步功能</li>
+              <li>检查同步结果和状态</li>
+              <li>逐步增加数量，直到同步完成</li>
+            </ol>
+          </div>
+        </div>
+
+        <!-- 手动爬取 (保留原功能) -->
+        <div class="form-section">
+          <h2 class="form-title">🔗 手动爬取 URL</h2>
           
           <div v-if="crawlError" class="error-message">{{ crawlError }}</div>
           <div v-if="crawlSuccess" class="success-message">{{ crawlSuccess }}</div>
@@ -643,19 +794,9 @@
             </div>
 
             <button type="submit" class="btn btn-primary" :disabled="crawling">
-              {{ crawling ? '爬取中...' : '开始爬取并上传' }}
+              {{ crawling ? '爬取中...' : '🕷️ 爬取并上传' }}
             </button>
           </form>
-        </div>
-
-        <div class="form-section">
-          <h2 class="form-title">使用说明</h2>
-          <ul style="color: var(--text-secondary); line-height: 2;">
-            <li>输入一个指向 .zip、.tgz 或 .tar.gz 文件的直链 URL</li>
-            <li>系统将自动下载、解压并以 admin 身份上传</li>
-            <li>支持常见的 Skill 包格式</li>
-            <li>上传后会自动出现在主站 Skills 列表中</li>
-          </ul>
         </div>
       </div>
     </main>
@@ -678,6 +819,18 @@
           },
           users: [],
           skills: [],
+          // SkillHub 同步
+          skillhubStatus: null,
+          skillhubPreview: null,
+          syncForm: {
+            limit: 10,
+            forceSync: false
+          },
+          syncing: false,
+          previewing: false,
+          syncError: '',
+          syncSuccess: '',
+          // 手动爬取
           crawlForm: {
             url: '',
             name: '',
@@ -709,6 +862,7 @@
           }
 
           await this.loadData();
+          await this.loadSkillHubStatus();
         } catch (error) {
           localStorage.removeItem('skills_house_token');
           window.location.href = '/admin-login.html';
@@ -772,6 +926,58 @@
             await this.loadData();
           } catch (error) {
             alert(error.response?.data?.error || '删除失败');
+          }
+        },
+        // SkillHub 同步方法
+        async loadSkillHubStatus() {
+          try {
+            const res = await axios.get('/api/skillhub/status');
+            this.skillhubStatus = res.data.state;
+          } catch (error) {
+            console.error('Failed to load SkillHub status:', error);
+          }
+        },
+        async startSync() {
+          this.syncing = true;
+          this.syncError = '';
+          this.syncSuccess = '';
+
+          try {
+            const res = await axios.post('/api/skillhub/sync', {
+              limit: this.syncForm.limit || null,
+              forceSync: this.syncForm.forceSync
+            });
+
+            this.syncSuccess = res.data.message;
+            
+            // 每隔 3 秒刷新状态，持续 30 秒
+            let refreshCount = 0;
+            const refreshInterval = setInterval(async () => {
+              await this.loadSkillHubStatus();
+              await this.loadData();
+              refreshCount++;
+              
+              if (refreshCount >= 10) {
+                clearInterval(refreshInterval);
+                this.syncing = false;
+              }
+            }, 3000);
+
+          } catch (error) {
+            this.syncError = error.response?.data?.error || '同步失败';
+            this.syncing = false;
+          }
+        },
+        async previewSkillHub() {
+          this.previewing = true;
+
+          try {
+            const res = await axios.get('/api/skillhub/preview');
+            this.skillhubPreview = res.data;
+          } catch (error) {
+            alert('预览失败: ' + (error.response?.data?.error || error.message));
+          } finally {
+            this.previewing = false;
           }
         },
         async crawlSkill() {
