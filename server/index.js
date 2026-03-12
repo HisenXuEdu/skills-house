@@ -546,7 +546,7 @@ app.post('/api/admin/crawl-skill', authenticateToken, requireAdmin, async (req, 
 const skillhubSync = require('./skillhub-sync');
 
 // 获取 SkillHub 同步状态
-app.get('/api/skillhub/status', authenticate, async (req, res) => {
+app.get('/api/skillhub/status', authenticateToken, async (req, res) => {
   try {
     const state = await skillhubSync.getSyncState();
     const localMetadata = await readMetadata();
@@ -566,7 +566,7 @@ app.get('/api/skillhub/status', authenticate, async (req, res) => {
 });
 
 // 触发增量同步
-app.post('/api/skillhub/sync', authenticate, isAdmin, async (req, res) => {
+app.post('/api/skillhub/sync', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { limit, forceSync } = req.body;
     
@@ -591,7 +591,7 @@ app.post('/api/skillhub/sync', authenticate, isAdmin, async (req, res) => {
 });
 
 // 获取 SkillHub 索引预览
-app.get('/api/skillhub/preview', authenticate, isAdmin, async (req, res) => {
+app.get('/api/skillhub/preview', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const index = await skillhubSync.fetchSkillHubIndex();
     
